@@ -1,0 +1,122 @@
+@import "tailwindcss";
+@import "vis-timeline/styles/vis-timeline-graph2d.css";
+
+:root {
+  --ink: #0b0d12;
+  --ink-2: #141821;
+  --paper: #e7e1d4;
+  --paper-dim: #cfc6b4;
+  --teal: #2fd2b8;
+  --teal-dim: #1a8f7e;
+  --amber: #e3b04a;
+  --rose: #d46a6a;
+  --violet: #8b7cf6;
+  --line: rgba(231, 225, 212, 0.12);
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans), "IBM Plex Sans", system-ui, sans-serif;
+}
+
+body {
+  background-image:
+    radial-gradient(1200px 500px at 10% -10%, rgba(47, 210, 184, 0.12), transparent 55%),
+    radial-gradient(900px 400px at 90% 0%, rgba(227, 176, 74, 0.08), transparent 50%),
+    linear-gradient(180deg, #0b0d12 0%, #0e121a 100%);
+}
+
+.font-display {
+  font-family: var(--font-display), Fraunces, Georgia, serif;
+}
+
+.vis-timeline {
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  color: var(--paper);
+}
+
+.vis-panel.vis-center,
+.vis-panel.vis-left,
+.vis-panel.vis-right,
+.vis-panel.vis-top,
+.vis-panel.vis-bottom {
+  border-color: var(--line);
+}
+
+.vis-text {
+  color: var(--paper-dim) !important;
+}
+
+.vis-time-axis .vis-grid.vis-minor,
+.vis-time-axis .vis-grid.vis-major {
+  border-color: var(--line);
+}
+
+.vis-item {
+  border-radius: 999px;
+  border-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+}
+
+.vis-item.kind-literature {
+  background: #2a3548;
+  color: #d7e3f5;
+}
+.vis-item.kind-trial {
+  background: #1c3d38;
+  color: var(--teal);
+}
+.vis-item.kind-drug {
+  background: #3d3420;
+  color: var(--amber);
+}
+.vis-item.kind-regulatory {
+  background: #3a2430;
+  color: #f0a8b4;
+}
+.vis-item.kind-gene {
+  background: #2a2650;
+  color: #c9c0ff;
+}
+
+.vis-item.vis-selected,
+.vis-item.cited {
+  box-shadow: 0 0 0 2px var(--teal);
+}
+
+.vis-labelset .vis-label {
+  color: var(--paper-dim);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vis-current-time {
+  background-color: var(--teal);
+}
+
+.vis-item .vis-item-content {
+  padding: 2px 10px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.5s ease both;
+}
