@@ -23,7 +23,7 @@
   var animGen = 0;
 
   function visNS() {
-    return typeof vis !== "undefined" ? vis : root.vis;
+    return root.visNetwork || (typeof vis !== "undefined" ? vis : root.vis);
   }
 
   function clearTimers() {
@@ -135,7 +135,7 @@
       host,
       { nodes: nodes, edges: edges },
       {
-        height: "280px",
+        height: "100%",
         width: "100%",
         autoResize: true,
         physics: {

@@ -19,7 +19,7 @@
   var animGen = 0;
 
   function visNS() {
-    return typeof vis !== "undefined" ? vis : root.vis;
+    return root.visTimeline || (typeof vis !== "undefined" ? vis : root.vis);
   }
 
   function TimelineCtor() {

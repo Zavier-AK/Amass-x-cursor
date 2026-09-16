@@ -158,15 +158,15 @@
     }
     var year = (m.date || "").slice(0, 4);
     card.innerHTML =
-      "<p>" +
+      '<p class="card-kicker">' +
       escapeHtml(year) +
       " · " +
       escapeHtml(m.kind) +
       "</p>" +
-      "<p>" +
+      '<p class="card-title">' +
       escapeHtml(m.title) +
       "</p>" +
-      "<p>" +
+      '<p class="card-body">' +
       escapeHtml(m.teach) +
       "</p>" +
       '<a href="' +
@@ -184,7 +184,7 @@
       return;
     }
     out.innerHTML =
-      "<p>Answer · " +
+      '<p class="card-kicker">Answer · ' +
       escapeHtml(state.teach.model) +
       "</p>" +
       "<pre>" +
@@ -212,16 +212,15 @@
       })
       .join("");
     out.innerHTML =
-      "<div><p>Covered</p><ul>" +
+      '<div class="check-col"><p class="card-kicker covered">Covered</p><ul>' +
       covered +
       "</ul></div>" +
-      "<div><p>Gaps</p><ul>" +
+      '<div class="check-col"><p class="card-kicker gaps">Gaps</p><ul>' +
       gaps +
       "</ul></div>" +
-      "<p>Question · " +
+      '<p class="check-question"><span class="card-kicker">Question · ' +
       escapeHtml(r.model) +
-      "</p>" +
-      "<p>" +
+      "</span>" +
       escapeHtml(r.question) +
       "</p>";
   }
@@ -271,9 +270,10 @@
     applyHighlight();
     statusLine("Retrieving cores…");
 
+    var force = $("force-live") && $("force-live").checked;
     return jsonFetch("/api/learn", {
       method: "POST",
-      body: JSON.stringify({ topic: topic }),
+      body: JSON.stringify({ topic: topic, forceLive: !!force }),
     })
       .then(function (json) {
         state.data = json;
@@ -383,6 +383,8 @@
     var notes = demo.notesExample || FALLBACK_DEMO.notesExample;
 
     state.playing = true;
+    var live = $("force-live");
+    if (live) live.checked = false;
     syncBusy();
 
     var input = $("topic-input");

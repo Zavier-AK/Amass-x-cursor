@@ -20,7 +20,13 @@
     />
     <link rel="stylesheet" href="css/app.css" />
     <script src="https://unpkg.com/vis-timeline@7.7.4/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <script>
+      window.visTimeline = window.vis;
+    </script>
     <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script>
+      window.visNetwork = window.vis;
+    </script>
     <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
   </head>
   <body>
@@ -56,6 +62,10 @@
             Build timeline
           </button>
         </form>
+        <label class="live-toggle">
+          <input type="checkbox" id="force-live" />
+          Fetch live Amass (skip golden-path cache)
+        </label>
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
 
