@@ -1,16 +1,12 @@
-/* CiteLine vis-network citation graph. Expects CDN global `vis` (Network, DataSet). */
+/* CiteLine canvas graph — rounded white cards on a pan/zoom field. */
 (function (root) {
   "use strict";
 
-  var COLORS = {
-    literature: { background: "#64748b", border: "#94a3b8", highlight: "#94a3b8" },
-    trial: { background: "#2fd2b8", border: "#7eead9", highlight: "#7eead9" },
-    drug: { background: "#e3b04a", border: "#f0c97a", highlight: "#f0c97a" },
-    regulatory: { background: "#d46a6a", border: "#e8a0a0", highlight: "#e8a0a0" },
-    gene: { background: "#8b7cf6", border: "#b4aaf8", highlight: "#b4aaf8" },
-  };
-  var TEAL = "#2fd2b8";
-  var PAPER = "#e7e1d4";
+  var ORANGE = "#f26b21";
+  var HAIRLINE = "#e6e1d8";
+  var INK = "#1a1a1a";
+  var MUTE = "#8a8680";
+  var WHITE = "#ffffff";
 
   var host = null;
   var network = null;
@@ -18,7 +14,7 @@
   var edges = null;
   var selectCb = null;
   var timers = [];
-  var highlight = { selectedId: null, citedIds: [] };
+  var highlight = { selectedId: null };
   var nodeMeta = {};
   var animGen = 0;
 
@@ -37,57 +33,65 @@
     return id;
   }
 
-  function palette(group) {
-    return COLORS[group] || COLORS.literature;
-  }
-
-  function nodeStyle(id, group, selected, cited) {
-    var pal = palette(group);
+  function styleFor(selected) {
     return {
-      size: selected ? 28 : 16,
-      borderWidth: selected ? 4 : cited ? 3 : 1,
+      borderWidth: selected ? 2 : 1,
       color: {
-        background: pal.background,
-        border: selected || cited ? TEAL : pal.border,
-        highlight: {
-          background: pal.background,
-          border: TEAL,
-        },
-        hover: {
-          background: pal.highlight,
-          border: TEAL,
-        },
+        background: WHITE,
+        border: selected ? ORANGE : HAIRLINE,
+        highlight: { background: WHITE, border: ORANGE },
+        hover: { background: WHITE, border: ORANGE },
       },
     };
   }
 
-  function toNode(n) {
-    var group = n.group || "literature";
-    var style = nodeStyle(n.id, group, false, false);
-    var year = n.date ? String(n.date).slice(0, 4) : "";
-    return {
-      id: n.id,
-      label: n.label || n.id,
-      group: group,
-      title: n.title || (year ? year + " · " + (n.label || n.id) : n.label || n.id),
-      font: { color: PAPER, face: "IBM Plex Sans", size: 12 },
-      shape: "dot",
-      size: style.size,
-      borderWidth: style.borderWidth,
-      color: style.color,
-    };
+  function layoutNodes(list) {
+    var years = list.map(function (n) {
+      var y = parseInt(n.year || (n.date || "").slice(0, 4), 10);
+      return isNaN(y) ? 2000 : y;
+    });
+    var min = Math.min.apply(null, years);
+    var max = Math.max.apply(null, years);
+    var span = Math.max(1, max - min);
+    return list.map(function (n, i) {
+      var y = years[i];
+      var x = ((y - min) / span) * 920;
+      var row = i % 3;
+      var yy = (row - 1) * 130;
+      var style = styleFor(false);
+      var sub = n.sub || n.title || "";
+      return {
+        id: n.id,
+        label: (n.label || n.id) + "\n" + sub,
+        x: x,
+        y: yy,
+        year: y,
+        font: {
+          color: INK,
+          face: "IBM Plex Sans",
+          size: 13,
+          multi: true,
+          bold: { color: INK, size: 13 },
+        },
+        shape: "box",
+        margin: { top: 12, right: 16, bottom: 12, left: 16 },
+        shapeProperties: { borderRadius: 16 },
+        borderWidth: style.borderWidth,
+        color: style.color,
+        shadow: false,
+        widthConstraint: { maximum: 210 },
+      };
+    });
   }
 
   function toEdge(e) {
     return {
       from: e.from,
       to: e.to,
-      label: e.label || "",
-      arrows: e.arrows || "to",
-      color: { color: "#3a4254", highlight: TEAL, hover: TEAL },
-      font: { color: "#8b93a7", size: 10, strokeWidth: 0 },
-      width: 1.2,
-      smooth: { type: "continuous" },
+      arrows: { to: { enabled: true, scaleFactor: 0.45 } },
+      color: { color: HAIRLINE, highlight: MUTE, hover: MUTE },
+      width: 1,
+      smooth: { type: "cubicBezier", forceDirection: "horizontal", roundness: 0.4 },
     };
   }
 
@@ -97,13 +101,10 @@
     var updates = [];
     for (var i = 0; i < ids.length; i++) {
       var id = ids[i];
-      var meta = nodeMeta[id] || { group: "literature" };
       var selected = highlight.selectedId === id;
-      var cited = highlight.citedIds.indexOf(id) !== -1;
-      var style = nodeStyle(id, meta.group, selected, cited);
+      var style = styleFor(selected);
       updates.push({
         id: id,
-        size: style.size,
         borderWidth: style.borderWidth,
         color: style.color,
       });
@@ -113,7 +114,7 @@
       try {
         network.selectNodes(highlight.selectedId ? [highlight.selectedId] : [], false);
       } catch (err) {
-        /* node may not exist yet */
+        /* ignore */
       }
     }
   }
@@ -122,13 +123,11 @@
     destroy();
     host = el;
     if (!host) return;
-
     var g = visNS();
     if (!g || !g.Network || !g.DataSet) {
-      console.error("CiteLineGraph: global vis.Network / vis.DataSet missing");
+      console.error("CiteLineGraph: vis.Network missing");
       return;
     }
-
     nodes = new g.DataSet([]);
     edges = new g.DataSet([]);
     network = new g.Network(
@@ -138,46 +137,38 @@
         height: "100%",
         width: "100%",
         autoResize: true,
-        physics: {
-          enabled: true,
-          solver: "barnesHut",
-          barnesHut: {
-            gravitationalConstant: -1800,
-            centralGravity: 0.12,
-            springLength: 130,
-            springConstant: 0.04,
-            damping: 0.42,
-            avoidOverlap: 0.28,
-          },
-          minVelocity: 0.75,
-          stabilization: { enabled: true, iterations: 80 },
-        },
+        physics: false,
         interaction: {
           hover: true,
-          tooltipDelay: 120,
+          tooltipDelay: 180,
           zoomView: true,
           dragView: true,
-          dragNodes: true,
+          dragNodes: false,
+          navigationButtons: false,
+          keyboard: false,
         },
         nodes: {
-          shape: "dot",
-          size: 16,
-          font: { color: PAPER, face: "IBM Plex Sans", size: 12 },
-          borderWidth: 1,
+          shape: "box",
+          font: { color: INK, face: "IBM Plex Sans", size: 13 },
         },
         edges: {
-          arrows: { to: { enabled: true, scaleFactor: 0.55 } },
-          color: { color: "#3a4254", highlight: TEAL },
-          smooth: { type: "continuous" },
-          width: 1.2,
+          color: { color: HAIRLINE },
+          width: 1,
         },
       }
     );
-
     network.on("click", function (params) {
       var id = params && params.nodes && params.nodes[0];
       if (id && selectCb) selectCb(id);
+      if (!id && selectCb) selectCb(null);
     });
+    try {
+      if (network.canvas && network.canvas.frame) {
+        network.canvas.frame.style.background = "transparent";
+      }
+    } catch (err) {
+      /* ignore */
+    }
   }
 
   function render(graph, opts) {
@@ -185,7 +176,7 @@
     opts = opts || {};
     var animate = !!opts.animate;
     graph = graph || { nodes: [], edges: [] };
-    var payloadNodes = (graph.nodes || []).map(toNode);
+    var payloadNodes = layoutNodes(graph.nodes || []);
     var payloadEdges = (graph.edges || []).map(toEdge);
 
     clearTimers();
@@ -193,9 +184,8 @@
     var gen = animGen;
     nodeMeta = {};
     payloadNodes.forEach(function (n) {
-      nodeMeta[n.id] = { group: n.group };
+      nodeMeta[n.id] = n;
     });
-
     nodes.clear();
     edges.clear();
 
@@ -203,9 +193,9 @@
       if (gen !== animGen) return;
       applyHighlight();
       try {
-        network.fit({ animation: animate });
+        network.fit({ animation: animate, padding: 80 });
       } catch (err) {
-        /* empty graph */
+        /* empty */
       }
     }
 
@@ -214,7 +204,11 @@
       return;
     }
 
-    if (!animate || payloadNodes.length < 2) {
+    payloadNodes.sort(function (a, b) {
+      return (a.year || 0) - (b.year || 0);
+    });
+
+    if (!animate) {
       nodes.add(payloadNodes);
       if (payloadEdges.length) edges.add(payloadEdges);
       finish();
@@ -225,20 +219,23 @@
       later(function () {
         if (gen !== animGen || !nodes) return;
         nodes.add(row);
-        applyHighlight();
-      }, 70 + i * 90);
+        try {
+          network.fit({ animation: { duration: 220, easingFunction: "easeInOutQuad" }, padding: 80 });
+        } catch (err) {
+          /* ignore */
+        }
+      }, 80 + i * 110);
     });
 
     later(function () {
       if (gen !== animGen || !edges) return;
       if (payloadEdges.length) edges.add(payloadEdges);
       finish();
-    }, 70 + payloadNodes.length * 90 + 80);
+    }, 80 + payloadNodes.length * 110 + 60);
   }
 
-  function setHighlight(selectedId, citedIds) {
+  function setHighlight(selectedId) {
     highlight.selectedId = selectedId || null;
-    highlight.citedIds = citedIds ? citedIds.slice() : [];
     applyHighlight();
   }
 
@@ -253,7 +250,7 @@
       try {
         network.destroy();
       } catch (err) {
-        /* already gone */
+        /* gone */
       }
     }
     network = null;
