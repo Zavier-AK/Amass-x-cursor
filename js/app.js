@@ -1,28 +1,20 @@
-/* CiteLine UI wiring. Talks to same-origin /api/* — never ships API keys. */
+/* CiteLine workspace — sidebar + dotted canvas + composer. */
 (function (root) {
   "use strict";
 
-  var FALLBACK_DEMO = {
-    topic: "GLP-1 receptor",
-    question:
-      "Why did GLP-1 medicines expand from diabetes into obesity — and which evidence on this timeline actually supports that shift?",
-    notesExample:
-      "GLP-1 is a hormone that lowers blood sugar. Semaglutide is a GLP-1 drug used for diabetes. I think the receptor was found in the 2000s when these drugs were invented.",
-    hasAmass: false,
-    hasClaude: false,
+  var KIND_LABEL = {
+    literature: "Paper",
+    trial: "Trial",
+    drug: "Drug",
+    regulatory: "Label",
+    gene: "Gene",
   };
 
   var state = {
-    demo: FALLBACK_DEMO,
-    data: null,
-    selectedId: null,
-    citedIds: [],
-    teach: null,
-    check: null,
+    topics: {},
+    activeId: null,
     loading: false,
-    playing: false,
-    askBusy: false,
-    checkBusy: false,
+    selectedId: null,
   };
 
   function $(id) {
@@ -37,10 +29,9 @@
       .replace(/"/g, "&quot;");
   }
 
-  function sleep(ms) {
-    return new Promise(function (resolve) {
-      root.setTimeout(resolve, ms);
-    });
+  function truncate(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n - 1) + "…" : s;
   }
 
   function jsonFetch(url, opts) {
@@ -57,11 +48,7 @@
       return res.json().then(
         function (body) {
           if (!res.ok) {
-            var err = new Error(
-              (body && (body.error || body.message)) || "Request failed"
-            );
-            err.status = res.status;
-            throw err;
+            throw new Error((body && (body.error || body.message)) || "Request failed");
           }
           return body;
         },
@@ -73,455 +60,306 @@
     });
   }
 
-  function setDisabled(id, disabled) {
-    var node = $(id);
-    if (node) node.disabled = !!disabled;
+  function topicId(title) {
+    return String(title || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
   }
 
-  function setText(id, text) {
-    var node = $(id);
-    if (node) node.textContent = text;
+  function setStatus(text) {
+    var el = $("status");
+    if (el) el.textContent = text || "";
   }
 
-  function setHtml(id, html) {
-    var node = $(id);
-    if (node) node.innerHTML = html;
+  function showEmpty(show) {
+    var el = $("empty-state");
+    if (!el) return;
+    if (show) el.classList.remove("is-hidden");
+    else el.classList.add("is-hidden");
   }
 
-  function busy() {
-    return state.loading || state.playing || state.askBusy || state.checkBusy;
+  function toast(msg) {
+    var el = $("toast");
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    root.setTimeout(function () {
+      el.hidden = true;
+    }, 2200);
   }
 
-  function syncBusy() {
-    var loadLock = state.loading || state.playing;
-    setDisabled("play-demo", loadLock);
-    setDisabled("build-btn", loadLock);
-    setDisabled("ask-btn", !state.data || state.askBusy || state.playing);
-    setDisabled("check-btn", !state.data || state.checkBusy || state.playing);
+  function kindLabel(kind) {
+    return KIND_LABEL[kind] || "Paper";
+  }
 
-    var play = $("play-demo");
-    if (play) {
-      play.textContent = state.playing ? "Playing golden path…" : "Play 1-min demo";
+  function toCanvasGraph(topic, learn) {
+    var miles = (learn.milestones || []).slice().sort(function (a, b) {
+      return String(a.date).localeCompare(String(b.date));
+    });
+    var picked = [];
+    var seen = {};
+    miles.forEach(function (m) {
+      var year = String(m.date || "").slice(0, 4);
+      var key = year + ":" + m.kind;
+      if (seen[key] && picked.length >= 8) return;
+      seen[key] = true;
+      picked.push(m);
+    });
+    picked = picked.slice(0, 12);
+    var nodes = picked.map(function (m) {
+      var year = String(m.date || "").slice(0, 4);
+      return {
+        id: m.id,
+        year: year,
+        date: m.date,
+        kind: m.kind,
+        label: topic + " · " + year,
+        sub: truncate(m.title, 46),
+        title: m.title,
+      };
+    });
+    var ids = {};
+    nodes.forEach(function (n) {
+      ids[n.id] = true;
+    });
+    var edges = [];
+    var seenE = {};
+    function addEdge(from, to) {
+      if (!from || !to || from === to || !ids[from] || !ids[to]) return;
+      var key = from + ">" + to;
+      if (seenE[key]) return;
+      seenE[key] = true;
+      edges.push({ from: from, to: to });
     }
-    var build = $("build-btn");
-    if (build) {
-      build.textContent = state.loading ? "Retrieving cores…" : "Build timeline";
-    }
-    var ask = $("ask-btn");
-    if (ask) {
-      ask.textContent = state.askBusy ? "Grounding…" : "Ask";
-    }
-    var check = $("check-btn");
-    if (check) {
-      check.textContent = state.checkBusy ? "Checking…" : "Check understanding";
-    }
+    for (var i = 0; i < nodes.length - 1; i++) addEdge(nodes[i].id, nodes[i + 1].id);
+    ((learn.graph && learn.graph.edges) || []).forEach(function (e) {
+      addEdge(e.from, e.to);
+    });
+    return { nodes: nodes, edges: edges };
   }
 
-  function statusLine(text) {
-    setText("status", text);
-  }
-
-  function learnStatus(data) {
-    if (!data) return;
-    var parts = [];
-    parts.push(
-      data.cached ? "Golden-path cache (demo-safe)." : "Live Amass search."
-    );
-    parts.push(
-      data.liveAmass
-        ? "Multi-core query succeeded."
-        : "Amass live key not required for this path."
-    );
-    if (data.fallbackReason) {
-      parts.push("Fallback: " + data.fallbackReason);
-    }
-    statusLine(parts.join(" "));
-  }
-
-  function selectedMilestone() {
-    if (!state.data || !state.selectedId) return null;
-    var list = state.data.milestones || [];
+  function milestoneById(data, id) {
+    var list = (data && data.milestones) || [];
     for (var i = 0; i < list.length; i++) {
-      if (list[i].id === state.selectedId) return list[i];
+      if (list[i].id === id) return list[i];
     }
     return null;
   }
 
-  function renderSelected() {
-    var m = selectedMilestone();
-    var card = $("selected-card");
-    if (!card) return;
+  function renderInspector(m) {
+    var box = $("inspector");
+    var body = $("inspector-body");
+    if (!box || !body) return;
     if (!m) {
-      card.innerHTML =
-        "<p>Click a milestone — the tutor only narrates that record, with a clickable source.</p>";
+      box.hidden = true;
+      body.innerHTML = "";
       return;
     }
-    var year = (m.date || "").slice(0, 4);
-    card.innerHTML =
-      '<p class="card-kicker">' +
+    var year = String(m.date || "").slice(0, 4);
+    var summary = truncate(m.teach || m.summary || "", 220);
+    body.innerHTML =
+      '<p class="year-kind">' +
       escapeHtml(year) +
       " · " +
-      escapeHtml(m.kind) +
+      escapeHtml(kindLabel(m.kind)) +
       "</p>" +
-      '<p class="card-title">' +
+      "<h2>" +
       escapeHtml(m.title) +
-      "</p>" +
-      '<p class="card-body">' +
-      escapeHtml(m.teach) +
+      "</h2>" +
+      '<p class="summary">' +
+      escapeHtml(summary) +
       "</p>" +
       '<a href="' +
       escapeHtml(m.sourceUrl) +
-      '" target="_blank" rel="noreferrer">Open source · ' +
-      escapeHtml(m.sourceLabel) +
-      "</a>";
+      '" target="_blank" rel="noreferrer">Open source</a>';
+    box.hidden = false;
   }
 
-  function renderTeach() {
-    var out = $("teach-out");
-    if (!out) return;
-    if (!state.teach) {
-      out.innerHTML = "";
+  function markActiveRow(id) {
+    var rows = document.querySelectorAll(".topic-row");
+    rows.forEach(function (row) {
+      var t = row.getAttribute("data-topic") || "";
+      row.classList.toggle("is-active", topicId(t) === id);
+    });
+  }
+
+  function upsertTopicRow(title, subtitle) {
+    var list = document.querySelector(".topic-list");
+    if (!list) return;
+    var id = topicId(title);
+    var existing = list.querySelector('[data-topic="' + title.replace(/"/g, "") + '"]');
+    if (existing) {
+      var sub = existing.querySelector(".topic-sub");
+      if (sub) sub.textContent = subtitle;
       return;
     }
-    out.innerHTML =
-      '<p class="card-kicker">Answer · ' +
-      escapeHtml(state.teach.model) +
-      "</p>" +
-      "<pre>" +
-      escapeHtml(state.teach.answer) +
-      "</pre>";
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "topic-row";
+    btn.setAttribute("data-topic", title);
+    btn.innerHTML =
+      '<span class="topic-title">' +
+      escapeHtml(title) +
+      '</span><span class="topic-sub">' +
+      escapeHtml(subtitle) +
+      '</span><span class="topic-time">Now</span>';
+    list.insertBefore(btn, list.firstChild);
+    btn.addEventListener("click", function () {
+      openTopic(title);
+    });
   }
 
-  function renderCheck() {
-    var out = $("check-out");
-    if (!out) return;
-    if (!state.check) {
-      out.innerHTML = "";
-      return;
+  function showTopicGraph(title, learn, animate) {
+    showEmpty(false);
+    var graph = toCanvasGraph(title, learn);
+    if (root.CiteLineGraph && root.CiteLineGraph.render) {
+      root.CiteLineGraph.render(graph, { animate: animate });
     }
-    var r = state.check;
-    var covered =
-      (r.covered || [])
-        .map(function (c) {
-          return "<li>" + escapeHtml(c) + "</li>";
-        })
-        .join("") || "<li>Nothing matched yet.</li>";
-    var gaps = (r.gaps || [])
-      .map(function (c) {
-        return "<li>" + escapeHtml(c) + "</li>";
-      })
-      .join("");
-    out.innerHTML =
-      '<div class="check-col"><p class="card-kicker covered">Covered</p><ul>' +
-      covered +
-      "</ul></div>" +
-      '<div class="check-col"><p class="card-kicker gaps">Gaps</p><ul>' +
-      gaps +
-      "</ul></div>" +
-      '<p class="check-question"><span class="card-kicker">Question · ' +
-      escapeHtml(r.model) +
-      "</span>" +
-      escapeHtml(r.question) +
-      "</p>";
+    var n = graph.nodes.length;
+    upsertTopicRow(title, n + " nodes");
+    markActiveRow(topicId(title));
   }
 
-  function renderEvidence() {
-    var n = state.data && state.data.milestones ? state.data.milestones.length : 0;
-    setText(
-      "evidence-count",
-      n ? n + " records in the evidence pack" : "Load a topic first"
-    );
-  }
-
-  function applyHighlight() {
-    if (root.CiteLineTimeline && root.CiteLineTimeline.setHighlight) {
-      root.CiteLineTimeline.setHighlight(state.selectedId, state.citedIds);
-    }
-    if (root.CiteLineGraph && root.CiteLineGraph.setHighlight) {
-      root.CiteLineGraph.setHighlight(state.selectedId, state.citedIds);
-    }
-  }
-
-  function onSelectRecord(id) {
-    if (!id) return;
-    state.selectedId = id;
-    renderSelected();
-    applyHighlight();
-  }
-
-  function pickDefaultId(milestones) {
-    if (!milestones || !milestones.length) return null;
-    for (var i = 0; i < milestones.length; i++) {
-      if (milestones[i].kind === "gene") return milestones[i].id;
-    }
-    return milestones[0].id;
-  }
-
-  function loadTopic(topic) {
-    state.loading = true;
-    state.teach = null;
-    state.check = null;
-    state.citedIds = [];
+  function openTopic(title) {
+    var id = topicId(title);
+    state.activeId = id;
     state.selectedId = null;
-    syncBusy();
-    renderTeach();
-    renderCheck();
-    renderSelected();
-    applyHighlight();
-    statusLine("Retrieving cores…");
-
-    var force = $("force-live") && $("force-live").checked;
-    return jsonFetch("/api/learn", {
-      method: "POST",
-      body: JSON.stringify({ topic: topic, forceLive: !!force }),
-    })
-      .then(function (json) {
-        state.data = json;
-        learnStatus(json);
-        renderEvidence();
-
-        if (root.CiteLineTimeline && root.CiteLineTimeline.render) {
-          root.CiteLineTimeline.render(json.milestones || [], { animate: true });
-        }
-        if (root.CiteLineGraph && root.CiteLineGraph.render) {
-          root.CiteLineGraph.render(json.graph || { nodes: [], edges: [] }, {
-            animate: true,
-          });
-        }
-        if (root.CiteLineProtein && root.CiteLineProtein.show) {
-          root.CiteLineProtein.show(json.protein || null);
-        }
-
-        root.setTimeout(function () {
-          state.selectedId = pickDefaultId(json.milestones);
-          renderSelected();
-          applyHighlight();
-        }, 900);
-
-        return json;
-      })
-      .catch(function (err) {
-        statusLine(err && err.message ? err.message : "Learn request failed");
-        return null;
-      })
-      .then(function (json) {
-        state.loading = false;
-        syncBusy();
-        return json;
-      });
+    renderInspector(null);
+    if (root.CiteLineGraph) root.CiteLineGraph.setHighlight(null);
+    markActiveRow(id);
+    var pack = state.topics[id];
+    if (pack && pack.data) {
+      setStatus("");
+      showTopicGraph(pack.title, pack.data, false);
+      return;
+    }
+    if (title === "New topic" || !title) {
+      showEmpty(true);
+      setStatus("");
+      if (root.CiteLineGraph) root.CiteLineGraph.render({ nodes: [], edges: [] });
+      return;
+    }
+    askTopic(title);
   }
 
-  function teachQuestion(question) {
-    if (!state.data) return Promise.resolve(null);
-    state.askBusy = true;
-    syncBusy();
-    return jsonFetch("/api/teach", {
+  function askTopic(topic) {
+    var title = String(topic || "").trim();
+    if (!title || state.loading) return;
+    state.loading = true;
+    state.activeId = topicId(title);
+    state.selectedId = null;
+    renderInspector(null);
+    $("send-btn").disabled = true;
+    setStatus("Researching " + title + "…");
+    showEmpty(false);
+    markActiveRow(state.activeId);
+
+    jsonFetch("/api/learn", {
       method: "POST",
-      body: JSON.stringify({
-        question: question,
-        milestones: state.data.milestones,
-      }),
+      body: JSON.stringify({ topic: title }),
     })
       .then(function (json) {
-        state.teach = json;
-        state.citedIds = json.citedIds || [];
-        if (state.citedIds[0]) state.selectedId = state.citedIds[0];
-        renderTeach();
-        renderSelected();
-        applyHighlight();
-        return json;
+        state.topics[state.activeId] = { title: title, data: json };
+        var n = (json.milestones || []).length;
+        setStatus(json.liveAmass ? "Live Amass · " + n + " records" : "");
+        showTopicGraph(title, json, true);
       })
       .catch(function (err) {
-        setHtml(
-          "teach-out",
-          "<p>" + escapeHtml(err && err.message ? err.message : "Teach failed") + "</p>"
-        );
-        return null;
-      })
-      .then(function (json) {
-        state.askBusy = false;
-        syncBusy();
-        return json;
-      });
-  }
-
-  function checkNotes(notes) {
-    if (!state.data) return Promise.resolve(null);
-    state.checkBusy = true;
-    syncBusy();
-    return jsonFetch("/api/check", {
-      method: "POST",
-      body: JSON.stringify({
-        notes: notes,
-        milestones: state.data.milestones,
-      }),
-    })
-      .then(function (json) {
-        state.check = json;
-        renderCheck();
-        return json;
-      })
-      .catch(function (err) {
-        setHtml(
-          "check-out",
-          "<p>" + escapeHtml(err && err.message ? err.message : "Check failed") + "</p>"
-        );
-        return null;
-      })
-      .then(function (json) {
-        state.checkBusy = false;
-        syncBusy();
-        return json;
-      });
-  }
-
-  function playDemo() {
-    if (busy()) return;
-    var demo = state.demo || FALLBACK_DEMO;
-    var topic = demo.topic || "GLP-1 receptor";
-    var question = demo.question || FALLBACK_DEMO.question;
-    var notes = demo.notesExample || FALLBACK_DEMO.notesExample;
-
-    state.playing = true;
-    var live = $("force-live");
-    if (live) live.checked = false;
-    syncBusy();
-
-    var input = $("topic-input");
-    if (input) input.value = topic;
-
-    loadTopic(topic)
-      .then(function (json) {
-        if (!json) return null;
-        return sleep(2200)
-          .then(function () {
-            var ask = $("ask-input");
-            if (ask) ask.value = question;
-            return teachQuestion(question);
-          })
-          .then(function () {
-            return sleep(1200);
-          })
-          .then(function () {
-            var notesEl = $("check-notes");
-            if (notesEl) {
-              notesEl.value = notes;
-              notesEl.dispatchEvent(new Event("input", { bubbles: true }));
-            }
-            return checkNotes(notes);
-          });
+        setStatus(err.message || "Could not research that topic.");
+        showEmpty(true);
       })
       .then(function () {
-        state.playing = false;
-        syncBusy();
-      })
-      .catch(function () {
-        state.playing = false;
-        syncBusy();
+        state.loading = false;
+        $("send-btn").disabled = false;
       });
+  }
+
+  function onSelectNode(id) {
+    state.selectedId = id;
+    if (root.CiteLineGraph) root.CiteLineGraph.setHighlight(id);
+    var pack = state.topics[state.activeId];
+    renderInspector(id && pack ? milestoneById(pack.data, id) : null);
+  }
+
+  function resizeComposer() {
+    var ta = $("composer-input");
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 76) + "px";
   }
 
   function bind() {
-    var form = $("topic-form");
+    var form = $("composer");
     if (form) {
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        if (state.loading || state.playing) return;
-        var input = $("topic-input");
-        var topic = ((input && input.value) || "").trim() || "GLP-1 receptor";
-        if (input) input.value = topic;
-        loadTopic(topic);
+        var ta = $("composer-input");
+        var topic = ((ta && ta.value) || "").trim();
+        if (!topic) return;
+        ta.value = "";
+        resizeComposer();
+        askTopic(topic);
+      });
+    }
+    var ta = $("composer-input");
+    if (ta) {
+      ta.addEventListener("input", resizeComposer);
+      ta.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          form.dispatchEvent(new Event("submit"));
+        }
       });
     }
 
-    var play = $("play-demo");
-    if (play) {
-      play.addEventListener("click", function (e) {
-        e.preventDefault();
-        playDemo();
+    $("new-topic").addEventListener("click", function () {
+      state.activeId = "new-topic";
+      state.topics["new-topic"] = { title: "New topic", data: null };
+      var ta2 = $("composer-input");
+      if (ta2) ta2.focus();
+      showEmpty(true);
+      setStatus("");
+      renderInspector(null);
+      markActiveRow("new-topic");
+      if (root.CiteLineGraph) root.CiteLineGraph.render({ nodes: [], edges: [] });
+    });
+
+    document.querySelectorAll(".topic-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        openTopic(row.getAttribute("data-topic"));
       });
-    }
+    });
 
-    var askForm = $("ask-form");
-    if (askForm) {
-      askForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-        if (!state.data || state.askBusy || state.playing) return;
-        var ask = $("ask-input");
-        var q = ((ask && ask.value) || "").trim() || (state.demo && state.demo.question) || FALLBACK_DEMO.question;
-        teachQuestion(q);
-      });
-    }
+    $("notes-toggle").addEventListener("click", function () {
+      var tray = $("notes-tray");
+      tray.hidden = !tray.hidden;
+    });
 
-    var checkBtn = $("check-btn");
-    if (checkBtn) {
-      checkBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        if (!state.data || state.checkBusy || state.playing) return;
-        var notesEl = $("check-notes");
-        var notes = ((notesEl && notesEl.value) || "").trim();
-        if (!notes) return;
-        checkNotes(notes);
-      });
+    var well = $("notes-well");
+    function notesStub(e) {
+      if (e) e.preventDefault();
+      toast("Demo — notes check not wired");
     }
-  }
+    well.addEventListener("click", notesStub);
+    well.addEventListener("dragover", function (e) {
+      e.preventDefault();
+    });
+    well.addEventListener("drop", notesStub);
+    well.addEventListener("paste", notesStub);
 
-  function mountViews() {
-    if (root.CiteLineTimeline && root.CiteLineTimeline.mount) {
-      root.CiteLineTimeline.mount($("timeline"));
-      root.CiteLineTimeline.onSelect(onSelectRecord);
-    }
-    if (root.CiteLineGraph && root.CiteLineGraph.mount) {
-      root.CiteLineGraph.mount($("graph"));
-      root.CiteLineGraph.onSelect(onSelectRecord);
-    }
-    if (root.CiteLineProtein && root.CiteLineProtein.mount) {
-      root.CiteLineProtein.mount($("protein"), $("protein-meta"));
-    }
-  }
-
-  function applyDemo(demo) {
-    state.demo = demo;
-    var input = $("topic-input");
-    if (input) {
-      if (!input.value) input.value = demo.topic || "";
-      if (!input.getAttribute("placeholder")) {
-        input.setAttribute(
-          "placeholder",
-          "Drug class, gene, disease — try " + (demo.topic || "GLP-1 receptor")
-        );
-      }
-    }
-    var ask = $("ask-input");
-    if (ask && !ask.getAttribute("placeholder") && demo.question) {
-      ask.setAttribute("placeholder", demo.question);
-    }
-    var notes = $("check-notes");
-    if (notes && !notes.getAttribute("placeholder") && demo.notesExample) {
-      notes.setAttribute("placeholder", demo.notesExample);
-    }
-    statusLine(
-      demo.hasAmass
-        ? "Live Amass is configured on the proxy. Type a topic or play the golden path."
-        : "No Amass key on the proxy — golden-path cache will be used."
-    );
-    renderEvidence();
-    renderSelected();
-    syncBusy();
+    $("inspector-close").addEventListener("click", function () {
+      onSelectNode(null);
+    });
   }
 
   function boot() {
-    mountViews();
+    if (root.CiteLineGraph && root.CiteLineGraph.mount) {
+      root.CiteLineGraph.mount($("graph"));
+      root.CiteLineGraph.onSelect(onSelectNode);
+    }
     bind();
-    renderSelected();
-    renderEvidence();
-    syncBusy();
-
-    jsonFetch("/api/demo")
-      .then(applyDemo)
-      .catch(function () {
-        applyDemo(FALLBACK_DEMO);
-      });
+    showEmpty(true);
   }
 
   if (document.readyState === "loading") {
