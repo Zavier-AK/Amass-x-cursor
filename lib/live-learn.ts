@@ -154,7 +154,7 @@ export async function learnFromAmass(topic: string, apiKey: string) {
         uniprotId: uniprot,
         geneAmassId: String(gene.amassId),
         summary: String(gene.summary || "").slice(0, 800),
-        alphafoldPdbUrl: `https://alphafold.ebi.ac.uk/files/AF-${uniprot}-F1-model_v4.pdb`,
+        alphafoldPdbUrl: `https://alphafold.ebi.ac.uk/files/AF-${uniprot}-F1-model_v6.pdb`,
       };
       milestones.unshift({
         id: String(gene.amassId),

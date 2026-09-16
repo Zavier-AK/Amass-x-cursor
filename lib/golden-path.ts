@@ -24,7 +24,7 @@ export const GOLDEN_PROTEIN: ProteinInfo = {
   geneAmassId: "AMGC_GOLDEN_GLP1R",
   summary:
     "Class B GPCR for the incretin GLP-1. Expressed in pancreatic beta cells, brain, and GI tract. Ligand binding raises cAMP, amplifying glucose-dependent insulin secretion — the molecular target of exenatide, liraglutide, and semaglutide.",
-  alphafoldPdbUrl: "https://alphafold.ebi.ac.uk/files/AF-P43220-F1-model_v4.pdb",
+  alphafoldPdbUrl: "https://alphafold.ebi.ac.uk/files/AF-P43220-F1-model_v6.pdb",
 };
 
 export const GOLDEN_NOTES_EXAMPLE = `GLP-1 is a hormone that lowers blood sugar. Semaglutide is a GLP-1 drug used for diabetes. I think the receptor was found in the 2000s when these drugs were invented.`;
