@@ -117,12 +117,12 @@ Demo sentence to keep in mind: *if there was a major breakthrough in gene editin
 
 ## 3. Bottom search bar (Claude / Cursor analogue)
 
-Docked to the bottom of the main column, floating on the dotted field (white pill, hairline, wide, not full-bleed ugly).
+Docked to the bottom of the main column, floating on the dotted field (white pill, rounded, hairline, wide, not full-bleed ugly).
 
 - Placeholder: `Ask a life-science topic…` or `Gene therapy, GLP1R, CRISPR…`
 - Text area that grows one–two lines, then scrolls
 - Send on Enter; Shift+Enter newline
-- Right: send affordance (arrow). No model picker, no rainbow attachments
+- Right: send control in orange (arrow). No model picker, no rainbow attachments
 - After send: the bar stays; a quiet “researching” state; nodes start landing above
 - Follow-up messages in the same topic (e.g. “what changed after 2012?”) add/highlight nodes on **this** canvas, they do not open a second page
 
