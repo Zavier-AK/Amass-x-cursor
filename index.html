@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CiteLine — grounded life-science tutor</title>
+    <meta
+      name="description"
+      content="Type a topic. Get a cited, animated timeline of how the science developed — then a tutor that can only speak from those sources."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/vis-timeline@7.7.4/styles/vis-timeline-graph2d.min.css"
+    />
+    <link rel="stylesheet" href="css/app.css" />
+    <script src="https://unpkg.com/vis-timeline@7.7.4/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="page">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="kicker kicker-teal">Cursor × Amass · CiteLine</p>
+          <h1>Ask science that can show its work.</h1>
+          <p class="lede">
+            Other models give confident prose you cannot verify. CiteLine builds
+            a cited, animated timeline from Amass cores, teaches only from those
+            records, and then checks whether you actually learned.
+          </p>
+        </div>
+        <button type="button" id="play-demo" class="btn btn-ghost">
+          Play 1-min demo
+        </button>
+      </header>
+
+      <main id="main">
+        <form id="topic-form" class="topic-form">
+          <label class="sr-only" for="topic-input">Topic</label>
+          <input
+            id="topic-input"
+            name="topic"
+            type="text"
+            autocomplete="off"
+            placeholder="Drug class, gene, disease — try GLP-1 receptor"
+          />
+          <button type="submit" id="build-btn" class="btn btn-paper">
+            Build timeline
+          </button>
+        </form>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <section class="panel panel-timeline" aria-labelledby="timeline-heading">
+          <header class="panel-head">
+            <p class="kicker kicker-teal">The spine</p>
+            <h2 id="timeline-heading">Cited timeline</h2>
+          </header>
+          <div id="timeline"></div>
+        </section>
+
+        <section class="panel panel-graph" aria-labelledby="graph-heading">
+          <header class="panel-head">
+            <p class="kicker kicker-teal">Relations</p>
+            <h2 id="graph-heading">Citation graph</h2>
+            <p class="hint">
+              this isn’t a list, it’s how the literature cites itself
+            </p>
+          </header>
+          <div id="graph"></div>
+        </section>
+
+        <div class="split">
+          <aside class="panel panel-protein" aria-labelledby="protein-heading">
+            <div id="protein-meta">
+              <p class="kicker">Structure</p>
+              <h2 id="protein-heading">AlphaFold model</h2>
+              <p>
+                No UniProt mapping yet. GeneCore → UniProt → AlphaFold is the
+                path we prove on the golden topic.
+              </p>
+            </div>
+            <div
+              id="protein"
+              role="img"
+              aria-label="Interactive 3D protein viewer"
+            ></div>
+          </aside>
+
+          <section class="panel panel-tutor" aria-labelledby="tutor-heading">
+            <header class="panel-head panel-head-rule">
+              <p class="kicker kicker-teal">Teaching layer</p>
+              <h2 id="tutor-heading">Grounded in retrieved records</h2>
+            </header>
+
+            <div class="tutor-body">
+              <div id="selected-card">
+                <p>
+                  Click a milestone — the tutor only narrates that record, with
+                  a clickable source.
+                </p>
+              </div>
+              <div id="teach-out"></div>
+            </div>
+
+            <form id="ask-form" class="ask-form">
+              <label class="sr-only" for="ask-input">Question for the tutor</label>
+              <textarea
+                id="ask-input"
+                name="question"
+                rows="2"
+                placeholder="Why did GLP-1 medicines expand from diabetes into obesity — and which evidence on this timeline actually supports that shift?"
+              ></textarea>
+              <div class="ask-row">
+                <p id="evidence-count">Load a topic first</p>
+                <button type="submit" id="ask-btn" class="btn btn-teal">
+                  Ask
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+
+        <section class="panel panel-check" aria-labelledby="check-heading">
+          <p class="kicker kicker-amber">Understanding check</p>
+          <h2 id="check-heading">Paste what you think you know</h2>
+          <p class="hint">
+            We compare your notes to the same evidence pack — flag gaps, then
+            pose one question. It does not just teach; it checks you actually
+            learned.
+          </p>
+          <label class="sr-only" for="check-notes">Your notes</label>
+          <textarea
+            id="check-notes"
+            name="notes"
+            rows="4"
+            placeholder="GLP-1 is a hormone that lowers blood sugar. Semaglutide is a GLP-1 drug used for diabetes. I think the receptor was found in the 2000s when these drugs were invented."
+          ></textarea>
+          <div class="check-actions">
+            <button type="button" id="check-btn" class="btn btn-amber">
+              Check understanding
+            </button>
+          </div>
+          <div id="check-out"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="js/timeline.js"></script>
+    <script src="js/graph.js"></script>
+    <script src="js/protein.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
