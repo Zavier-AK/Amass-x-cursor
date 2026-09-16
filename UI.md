@@ -2,7 +2,7 @@
 
 Planning only. Do not implement from this file until we say so.
 
-This replaces the current CiteLine landing-page layout with a **Cursor-like agent workspace**: left project sidebar, infinite dotted canvas as the main tab, chat/search docked at the bottom, notes as a drop-in tray. Visual language follows the Amass site still (white field, hairline dot grid, tight black type) — not a dark dashboard, not teal/amber chrome.
+This replaces the current CiteLine landing-page layout with a **Cursor-like agent workspace**: left project sidebar, infinite dotted canvas as the main tab, chat/search docked at the bottom, notes as a drop-in tray. Palette is **off-white + one nice orange**, black type, lots of air. Minimal, no clutter — not a dark dashboard, not teal/amber chrome.
 
 Reference still: `PROJECT.md` (product) and `AMASS.MD` (API). This file is layout, chrome, and interaction only.
 
@@ -10,19 +10,35 @@ Reference still: `PROJECT.md` (product) and `AMASS.MD` (API). This file is layou
 
 ## Visual system
 
-Taken from the Amass services page (dotted field, black display type, one small orange label, white cards).
+Off-white field, one orange, rounded cards, almost nothing else. Amass site energy (dot grid + black type + a small orange label) without the marketing blobs.
 
-| Token | Use |
-| --- | --- |
-| Ground | Near-white (`#f7f7f5` / `#fafafa`), not cream, not navy |
-| Dots | Light grey speckle grid, even spacing, low contrast — wallpaper, not decoration |
-| Type | One clean sans (Inter / IBM Plex Sans / similar). Large, tight tracking on empty-state titles. Body grey, not black-on-black |
-| Accent | One: small caps orange/coral for section labels (`AMASS` energy). Everything else black / grey / white |
-| Surfaces | White panels, 1px light grey hairline, large radius (~16–20px), almost no shadow |
-| Nodes | White cards on the dotted field. Black title, grey year, one line of source. Selected = black ring, not a colour fill |
-| Edges | Thin grey lines between related nodes. No rainbow graph |
+### Colour
 
-No gradients, no spectrum cartoons, no teal tutor chrome, no Fraunces display. The canvas is the Amass page; the chrome is Cursor.
+| Token | Approx | Use |
+| --- | --- | --- |
+| Off-white | `#f7f4ee` / `#f6f3ec` | Page, canvas, sidebar wash — warm paper, not stark `#fff`, not cream-yellow |
+| White | `#ffffff` | Node cards, composer, inspector — sit slightly above the off-white |
+| Ink | `#1a1a1a` | Titles only |
+| Mute | `#8a8680` | Subtitles, years, helper copy |
+| Hairline | `#e6e1d8` | Borders, edges, sidebar rules |
+| Orange | `#f26b21` (Amass-like; warm, not neon, not amber) | **The only accent.** Small labels, selected node ring / hairline, send control, active sidebar tick. Never a full-card fill, never a rainbow of node colours |
+
+Dots on the canvas: same orange or warm grey at ~8–12% opacity, even spacing. Texture, not a pattern you notice first.
+
+### Shape and chrome
+
+- **Nodes are rounded.** Generous radius (~16–20px), white card, 1px hairline, no drop shadow (or a whisper). Selected = thin orange ring, still rounded — not a black box, not a pill of orange fill.
+- Composer and inspector: same radius family.
+- Sidebar rows: slight rounding on the active state, off-white/grey wash, orange only as a 2px leading edge or tiny mark.
+
+### Minimal — no clutter
+
+- One typeface, two sizes that matter (title / body). No badges soup, no icons on every row, no colour-coded kinds.
+- Source kind (`Paper`) is grey text, not a chip in four colours.
+- Empty canvas: one sentence. Researching: one line. Inspector: title, source, two lines, one link.
+- If an element is not needed for the demo beat, it is not on screen.
+
+No gradients, no spectrum cartoons, no teal, no extra accent colours. Off-white + orange + ink. The canvas is quiet; the orange is the pointer.
 
 ---
 
@@ -57,7 +73,7 @@ Looks like Cursor’s file/chat rail, not a marketing nav.
 - Product mark + wordmark at top (small, black)
 - **New topic** control (ghost button)
 - List of **topics / chats**, newest first. Each row: topic title, one-line subtitle (e.g. `Gene editing · 14 nodes`), relative time
-- Active row: light grey fill, not a colour pill
+- Active row: off-white/grey wash + a thin orange leading edge — not a loud pill
 - Optional groups later: *Today*, *Previous* — skip if it clutters the demo
 - Bottom of rail: collapsed account / settings stub (non-functional)
 
@@ -87,12 +103,13 @@ This is the Amass dotted background, used as a **map**, not a page texture behin
 6. Nodes **appear in order** along the timeline (the motion is the hook). Layout is a left→right year axis, slightly staggered so it reads as a graph, not a Gantt.
 
 ### Node
+- **Rounded rectangle** (16–20px), white on off-white, plenty of padding, one title + one subline. Nothing else on the card until selected.
 - Label pattern: `{topic} · {year}` — e.g. `Gene editing · 2003`
 - Subline: short breakthrough name (what happened)
-- Badge: source kind (`Paper` / `Trial` / `Drug` / `Label`) in grey, not colour-coding the whole card
+- Kind (`Paper` / `Trial` / `Drug` / `Label`) as muted grey text only if needed — not a coloured badge
 - Every node **owns the underlying study**: Amass id, title, year, PMID/NCT/DOI, outbound URL
-- **Click:** inspector (right sheet or floating card) shows the referenced paper/trial — title, authors/journal or NCT, two-line grounded summary, **Open source**. That is the teaching click. No separate “tutor essay” panel in v1 of this UI
-- Selected node: hairline black outline; its edges slightly darker; inspector open
+- **Click:** inspector (right sheet or floating card, same rounding) shows the referenced paper/trial — title, authors/journal or NCT, two-line grounded summary, **Open source**. That is the teaching click. No separate “tutor essay” panel in v1 of this UI
+- Selected node: **orange hairline ring** (still rounded); connected edges a shade darker grey. Unselected nodes stay quiet.
 
 Demo sentence to keep in mind: *if there was a major breakthrough in gene editing in 2003, the node says “Gene editing · 2003”; click it, and the paper that supports that discovery is what you see.*
 
@@ -147,7 +164,7 @@ Same loop for `gene therapy` or `GLP-1 receptor`. One canvas per sidebar topic.
 ## Explicitly out of this UI
 
 - Current dark CiteLine marketing page, vis-timeline strip, 3D protein column, tutor essay column, understanding-check form as a full section
-- Crazy colour, spectrum protein, animated brand blobs from the Amass marketing page (those blobs are *not* our chrome; only the **dot grid + type** are)
+- Extra colours, spectrum protein, animated brand blobs from the Amass marketing page (those blobs are *not* our chrome; **off-white, orange, dot grid, type** are)
 - Building a working notes parser, working file upload, or a second page for “chat transcript”
 - Cluttering the canvas with chat bubbles — chat lives in the bottom bar; the graph *is* the answer
 
